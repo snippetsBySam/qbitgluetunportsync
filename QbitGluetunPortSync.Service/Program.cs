@@ -9,6 +9,12 @@ var builder = Host.CreateApplicationBuilder(args);
 var services = builder.Services;
 var config = builder.Configuration;
 
+builder.Logging.ClearProviders();
+builder.Logging.AddSimpleConsole(options =>
+{
+    options.TimestampFormat = "[yyyy-MM-dd HH:mm:ss.fff] ";
+    options.UseUtcTimestamp = true;
+});
 
 services.AddOptions<GluetunConfig>().Bind(config.GetSection(GluetunConfig.SectionName));
 services.AddOptions<QbittorrentConfig>().Bind(config.GetSection(QbittorrentConfig.SectionName));
@@ -47,7 +53,6 @@ services.AddHttpClient<QbitClient>(
             AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate
         };
     });
-
 
 builder.Services.AddHostedService<PortSyncService>();
 var host = builder.Build();

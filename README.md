@@ -5,7 +5,7 @@ An applet that keeps the qBittorrent listening port in sync with the forwarded p
 Key features
 - Supports all of Gluetun's authentication methods (Apikey, basic and none)
 - Periodically reads the forwarded port from Gluetun.
-- Updates qBittorrent's listening port automatically (via qBittorrent Web API).
+- Updates qBittorrent's listening port automatically (via qBittorrent Web UI).
 - Runs in Docker alongside Gluetun and qBittorrent.
 
 ---
@@ -69,8 +69,6 @@ services:
       - ./qbittorrent/config:/config
       - ./qbittorrent/downloads:/downloads
     restart: unless-stopped
-    networks:
-      - vpn-net
 
   qbit-gluetun-port-sync:
     image: snippetsbysam/qbitgluetunportsync:latest
@@ -94,8 +92,8 @@ services:
 
       # Timings are optional - default values are below
       - Timings__InitialDelaySeconds=5
-      - Timings__CheckIntervalSeconds=60
-      - Timings__ErrorIntervalSeconds=5
+      - Timings__CheckIntervalSeconds=300
+      - Timings__ErrorIntervalSeconds=10
     restart: "unless-stopped"
 
 networks:
@@ -107,8 +105,8 @@ networks:
 Build Docker image:
 
 ```bash
-# from repo root (adjust Dockerfile path if needed)
-docker build -t snippetsbysam/qbitgluetunportsync:latest .
+# from repo root
+docker docker build -f QbitGluetunPortSync.Service/Dockerfile -t snippetsbysam/qbitgluetunportsync:latest
 ```
 
 

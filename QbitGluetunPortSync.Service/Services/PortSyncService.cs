@@ -34,44 +34,57 @@ public class PortSyncService : BackgroundService
         _logger.LogInformation("Port sync service started.");
         _logger.LogInformation("qBittorrent Config: {Config}", _qbitConfig.LogConfig);
         _logger.LogInformation("Gluetun Config: {Config}", _gluetunConfig.LogConfig);
+
         if (_timings.InitialDelaySeconds > 0)
             await Task.Delay(TimeSpan.FromSeconds(_timings.InitialDelaySeconds), stoppingToken);
 
+        int currentQbitPort;
+        try
+        {
+            currentQbitPort = await _qbittorrent.GetListenPortAsync(stoppingToken)
+                ?? throw new InvalidOperationException("Unable to read qBittorrent listen port at startup.");
+
+            _logger.LogInformation("Initial qBittorrent listen port: {Port}", currentQbitPort);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogCritical(ex, "Startup failed: cannot determine qBittorrent listen port");
+            return;
+        }
+
         while (!stoppingToken.IsCancellationRequested)
         {
+            bool portChanged = false;
             try
             {
-                var currentPort = await _qbittorrent.GetListenPortAsync(stoppingToken);
                 var forwardedPort = await _gluetun.GetForwardedPortAsync(stoppingToken);
 
                 if (forwardedPort <= 0)
                 {
-                    _logger.LogWarning("No forwarded port retrieved from Gluetun: {Port}", forwardedPort);
-                    await Task.Delay(TimeSpan.FromSeconds(_timings.ErrorIntervalSeconds), stoppingToken);
+                    _logger.LogWarning("Invalid Gluetun forwarded port: {Port}", forwardedPort);
+                    await ErrorBackoff(stoppingToken);
                     continue;
                 }
 
-                if (currentPort is null)
-                {
-                    _logger.LogWarning("Unable to read current qBittorrent listen port.");
-                    await Task.Delay(TimeSpan.FromSeconds(_timings.ErrorIntervalSeconds), stoppingToken);
-                    continue;
-                }
-
-                if (forwardedPort != currentPort.Value)
+                if (forwardedPort != currentQbitPort)
                 {
                     var ok = await _qbittorrent.UpdateListenPortAsync(forwardedPort, stoppingToken);
                     if (!ok)
                     {
                         _logger.LogWarning("Failed to update qBittorrent listen port to {Port}", forwardedPort);
-                        await Task.Delay(TimeSpan.FromSeconds(_timings.ErrorIntervalSeconds), stoppingToken);
+                        await ErrorBackoff(stoppingToken);
                         continue;
                     }
-
-                    _logger.LogInformation("Updated qBittorrent listen port: {OldPort} -> {NewPort}", currentPort, forwardedPort);
+                    _logger.LogInformation("Updated qBittorrent listen port: {OldPort} -> {NewPort}", currentQbitPort, forwardedPort);
+                    portChanged = true;
+                    currentQbitPort = forwardedPort;
+                }
+                if (!portChanged)
+                {
+                    _logger.LogInformation("Forwarding port unchanged from current port: {Port}. Sleeping until next interval.", forwardedPort);
                 }
 
-                await Task.Delay(TimeSpan.FromSeconds(_timings.CheckIntervalSeconds), stoppingToken);
+                await NextInterval(stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -80,8 +93,14 @@ public class PortSyncService : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Port sync failed");
-                await Task.Delay(TimeSpan.FromSeconds(_timings.ErrorIntervalSeconds), stoppingToken);
+                await ErrorBackoff(stoppingToken);
             }
         }
     }
+
+    private Task NextInterval(CancellationToken stoppingToken) =>
+        Task.Delay(TimeSpan.FromSeconds(_timings.CheckIntervalSeconds), stoppingToken);
+
+    private Task ErrorBackoff(CancellationToken stoppingToken) =>
+        Task.Delay(TimeSpan.FromSeconds(_timings.ErrorIntervalSeconds), stoppingToken);
 }
