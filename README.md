@@ -88,17 +88,15 @@ services:
       - Gluetun__Host=localhost           # optional - localhost is default
       - Gluetun__Port=8000                # optional - 8000 is default
       - Gluetun__UseHttps=false           # optional - false is default
-      - Gluetun__Username=admin           # required for basic auth
-      - Gluetun__Password=adminadmin      # required for basic auth
-      - Gluetun__ApiKey=yourapikey        # required for api key auth
+      - Gluetun__Username=admin           # required if using basic auth
+      - Gluetun__Password=adminadmin      # required if using basic auth
+      - Gluetun__ApiKey=yourapikey        # required if using api key auth
 
       # Timings are optional - default values are below
       - Timings__InitialDelaySeconds=5
       - Timings__CheckIntervalSeconds=60
       - Timings__ErrorIntervalSeconds=5
     restart: "unless-stopped"
-    networks:
-      - vpn-net
 
 networks:
   vpn-net:
