@@ -112,3 +112,5 @@ docker docker build -f QbitGluetunPortSync.Service/Dockerfile -t snippetsbysam/q
 
 Contact / Support
 For issues or questions, please open an issue in the repository: [https://github.com/snippetsBySam/qbitgluetunportsync/issues](https://github.com/snippetsBySam/qbitgluetunportsync/issues)
+
+Credit to [TechnoSam](https://codeberg.org/TechnoSam) for the inspiration
